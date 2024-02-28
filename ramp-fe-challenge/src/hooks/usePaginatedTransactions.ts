@@ -3,6 +3,7 @@ import { PaginatedRequestParams, PaginatedResponse, Transaction } from "../utils
 import { PaginatedTransactionsResult } from "./types";
 import { useCustomFetch } from "./useCustomFetch";
 
+
 export function usePaginatedTransactions(): PaginatedTransactionsResult {
   const { fetchWithCache, loading } = useCustomFetch();
   const [paginatedTransactions, setPaginatedTransactions] = useState<PaginatedResponse<Transaction[]> | null>(null);
@@ -16,7 +17,7 @@ export function usePaginatedTransactions(): PaginatedTransactionsResult {
     );
 
     setPaginatedTransactions((previousResponse) => {
-      if (response === null) {
+      if (response === null || response.data === null) {
         return previousResponse;
       }
 
@@ -24,11 +25,14 @@ export function usePaginatedTransactions(): PaginatedTransactionsResult {
         return response;
       }
 
-      // Append new transactions to the existing ones
+      // Assuming each transaction has a unique identifier. Adjust 't.id' to your actual identifier property.
+      const existingIds = new Set(previousResponse.data.map(t => t.id));
+      const filteredNewTransactions = response.data.filter(t => !existingIds.has(t.id));
+
       return {
         ...response,
-        data: [...previousResponse.data, ...response.data],
-        // Assume nextPage is correctly updated in the response
+        data: [...previousResponse.data, ...filteredNewTransactions],
+        nextPage: response.nextPage,
       };
     });
   }, [fetchWithCache, paginatedTransactions]);
@@ -37,5 +41,8 @@ export function usePaginatedTransactions(): PaginatedTransactionsResult {
     setPaginatedTransactions(null);
   }, []);
 
-  return { data: paginatedTransactions, loading, fetchAll, invalidateData };
+  // Determine if there are more transactions available based on the presence of nextPage
+  const hasMoreTransactions = !!paginatedTransactions?.nextPage;
+
+  return { data: paginatedTransactions, loading, fetchAll, invalidateData, hasMoreTransactions };
 }
